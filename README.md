@@ -2,6 +2,8 @@
 
 Worktree Color Sync is a macOS-first Rust daemon that syncs visual context to your active git worktree.
 
+![Worktree Color Sync demo](assets/worktree-color-sync-demo.png)
+
 This MVP includes:
 - Ghostty terminal color sync (tab-specific, based on TTY)
 - Cursor workspace titlebar tint sync (`.vscode/settings.json`)
