@@ -1,4 +1,4 @@
-# Worktree Color Sync (CODEX MVP)
+# Worktree Color Sync (beta)
 
 Worktree Color Sync is a macOS-first Rust daemon that syncs visual context to your active git worktree.
 
