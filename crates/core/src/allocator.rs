@@ -100,6 +100,24 @@ mod tests {
     }
 
     #[test]
+    fn normalizes_existing_color_without_hash() {
+        let allocator = ColorAllocator::new(vec![], false);
+        let active = HashSet::new();
+        let color = allocator
+            .allocate("repo\0wt", Some("AABBCC"), &active)
+            .unwrap();
+        assert_eq!(color, "#aabbcc");
+    }
+
+    #[test]
+    fn rejects_invalid_existing_color() {
+        let allocator = ColorAllocator::new(vec![], false);
+        let active = HashSet::new();
+        let err = allocator.allocate("repo\0wt", Some("not-a-hex"), &active);
+        assert!(err.is_err());
+    }
+
+    #[test]
     fn avoids_active_collisions() {
         let allocator = ColorAllocator::new(vec!["#111111".into(), "#222222".into()], false);
         let mut active = HashSet::new();
@@ -110,12 +128,26 @@ mod tests {
     }
 
     #[test]
+    fn strict_palette_errors_when_exhausted() {
+        let allocator = ColorAllocator::new(vec!["#111111".into()], true);
+        let mut active = HashSet::new();
+        active.insert("#111111".to_string());
+
+        let err = allocator.allocate("seed", None, &active).unwrap_err();
+        assert!(err
+            .to_string()
+            .contains("strict_palette is enabled; unable to pick unique color"));
+    }
+
+    #[test]
     fn deterministic_fallback_when_palette_exhausted() {
         let allocator = ColorAllocator::new(vec!["#111111".into()], false);
         let mut active = HashSet::new();
         active.insert("#111111".to_string());
 
-        let color = allocator.allocate("seed", None, &active).unwrap();
-        assert_ne!(color, "#111111");
+        let color_a = allocator.allocate("seed", None, &active).unwrap();
+        let color_b = allocator.allocate("seed", None, &active).unwrap();
+        assert_ne!(color_a, "#111111");
+        assert_eq!(color_a, color_b);
     }
 }

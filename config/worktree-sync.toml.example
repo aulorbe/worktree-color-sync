@@ -6,7 +6,7 @@ integration_timeout_ms = 500
 neutral_color = "#1f1f1f"
 
 [colors]
-# Optional override palette. If empty, built-in 24-color palette is used.
+# Optional override palette. If empty, built-in 24-color high-contrast palette is used.
 palette = []
 strict_palette = false
 

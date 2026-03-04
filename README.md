@@ -8,6 +8,7 @@ This MVP includes:
 - Ghostty terminal color sync (tab-specific, based on TTY)
 - Cursor workspace titlebar tint sync (`.vscode/settings.json`)
 - Deterministic, collision-aware color assignment for active worktrees
+- Built-in high-contrast palette with 24 default slots
 - Local daemon + CLI (`daemon`, `notify`, `status`, `current`, `doctor`)
 
 ## Why
@@ -88,6 +89,7 @@ Example config:
   - `git worktree list --porcelain`
 - Worktree identity key is `repo_root + worktree_path`.
 - Color allocator is deterministic, preserves persisted assignments to disk, and reuses the same worktree color across leave/re-enter cycles.
+- Built-in palette size is `24`, so up to 24 worktrees can hold unique palette colors before fallback generation (unless `strict_palette = true`).
 - Ghostty update behavior is context-aware per tab TTY:
   - in worktree context: writes OSC 11 (background) + OSC 10 (foreground)
   - outside worktree context: writes OSC reset sequences (110/111/112) to restore terminal defaults
@@ -108,7 +110,7 @@ Example config:
 - `Cursor wrapper`: The hook defines a shell function named `cursor`; if you need the raw binary, use `command cursor ...`.
 - `Cursor settings`: This tool writes to workspace-local `.vscode/settings.json` and may create the file.
 - `Terminal defaults`: Workspace terminal cwd/split behavior is set to project-root oriented defaults.
-- `Certainty`: Active collisions are avoided in-memory; extremely large active sets may require fallback generated colors.
+- `Color capacity`: Built-in default palette supports `24` unique color slots. Above that, deterministic fallback colors are generated unless `strict_palette = true` (then allocation errors once full).
 - `Security`: The daemon trusts local socket clients on your user account. Do not expose the socket path to other users.
 - `No warranty`: This is open source software provided "as is".
 

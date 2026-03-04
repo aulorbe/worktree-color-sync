@@ -147,12 +147,74 @@ mod tests {
     }
 
     #[test]
+    fn set_terminal_context_detects_changes_and_noops() {
+        let mut state = RuntimeState::default();
+
+        let changed = state.set_terminal_context(
+            "/dev/ttys001".into(),
+            Some("repo\0wt".into()),
+            "#111111".into(),
+        );
+        assert!(changed);
+
+        let changed = state.set_terminal_context(
+            "/dev/ttys001".into(),
+            Some("repo\0wt".into()),
+            "#111111".into(),
+        );
+        assert!(!changed);
+
+        let changed = state.set_terminal_context(
+            "/dev/ttys001".into(),
+            Some("repo\0wt2".into()),
+            "#222222".into(),
+        );
+        assert!(changed);
+    }
+
+    #[test]
+    fn counts_distinct_worktrees_across_terminals() {
+        let mut state = RuntimeState::default();
+        state.set_terminal_context(
+            "/dev/ttys001".into(),
+            Some("repo\0wt-a".into()),
+            "#111111".into(),
+        );
+        state.set_terminal_context(
+            "/dev/ttys002".into(),
+            Some("repo\0wt-a".into()),
+            "#111111".into(),
+        );
+        state.set_terminal_context(
+            "/dev/ttys003".into(),
+            Some("repo\0wt-b".into()),
+            "#222222".into(),
+        );
+        state.set_terminal_context("/dev/ttys004".into(), None, "#1f1f1f".into());
+
+        let (terminals, active_worktrees) = state.counts();
+        assert_eq!(terminals, 4);
+        assert_eq!(active_worktrees, 2);
+    }
+
+    #[test]
     fn assigned_colors_excluding_key_works() {
         let mut state = RuntimeState::default();
         state.set_assignment("a".into(), "#111111".into());
         state.set_assignment("b".into(), "#222222".into());
 
         let colors = state.assigned_colors_excluding_key(Some("a"));
+        assert!(colors.contains("#222222"));
+        assert!(!colors.contains("#111111"));
+    }
+
+    #[test]
+    fn active_colors_excluding_key_works() {
+        let mut state = RuntimeState::default();
+        state.set_terminal_context("/dev/ttys001".into(), Some("a".into()), "#111111".into());
+        state.set_terminal_context("/dev/ttys002".into(), Some("b".into()), "#222222".into());
+
+        let colors = state.active_colors_excluding_key(Some("a"));
         assert!(colors.contains("#222222"));
         assert!(!colors.contains("#111111"));
     }

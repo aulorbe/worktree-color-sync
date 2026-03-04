@@ -180,4 +180,31 @@ mod tests {
         let parsed = parse_worktree_porcelain(raw);
         assert_eq!(parsed[0].worktree, PathBuf::from("/tmp/my repo/wt one"));
     }
+
+    #[test]
+    fn repo_root_uses_parent_when_common_dir_points_to_dot_git() {
+        let toplevel = PathBuf::from("/tmp/repo/worktrees/feature");
+        let root = repo_root_from_git_common_dir(&toplevel, "/tmp/repo/.git");
+        assert_eq!(root, PathBuf::from("/tmp/repo"));
+    }
+
+    #[test]
+    fn repo_root_falls_back_to_toplevel_when_common_dir_is_not_dot_git() {
+        let toplevel = PathBuf::from("/tmp/repo/worktrees/feature");
+        let root = repo_root_from_git_common_dir(&toplevel, "/tmp/repo/.git/worktrees/feature");
+        assert_eq!(root, PathBuf::from("/tmp/repo/worktrees/feature"));
+    }
+
+    #[test]
+    fn repo_root_handles_relative_common_dir() {
+        let tmp = tempfile::tempdir().unwrap();
+        let repo_root = tmp.path().join("repo");
+        let toplevel = repo_root.join("worktrees/feature");
+
+        std::fs::create_dir_all(repo_root.join(".git")).unwrap();
+        std::fs::create_dir_all(&toplevel).unwrap();
+
+        let root = repo_root_from_git_common_dir(&toplevel, "../../.git");
+        assert_eq!(root, canonical_or_original(&repo_root));
+    }
 }
