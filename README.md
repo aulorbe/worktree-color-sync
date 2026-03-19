@@ -30,7 +30,11 @@ Binary path:
 worktree-sync daemon
 ```
 
-2. Add shell hook (`shell/hook.zsh`) to your `~/.zshrc`.
+2. Add shell hook to your `~/.zshrc`:
+```bash
+echo 'source /path/to/worktree-color-sync/shell/hook.zsh' >> ~/.zshrc
+```
+Then reload your shell: `source ~/.zshrc`
 
 3. In Ghostty, each tab/session sends updates using a zsh hook with:
 - `terminal_id = $(tty)` (tab-specific)
