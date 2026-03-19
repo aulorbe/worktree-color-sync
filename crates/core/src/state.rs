@@ -126,6 +126,18 @@ impl RuntimeState {
             .map(|ctx| ctx.color.clone())
             .collect()
     }
+
+    pub fn terminals_for_worktree(&self, worktree_key: &str) -> Vec<String> {
+        self.terminal_contexts
+            .iter()
+            .filter(|(_, ctx)| {
+                ctx.worktree_key
+                    .as_ref()
+                    .map_or(false, |key| key == worktree_key)
+            })
+            .map(|(terminal_id, _)| terminal_id.clone())
+            .collect()
+    }
 }
 
 #[cfg(test)]
@@ -217,5 +229,68 @@ mod tests {
         let colors = state.active_colors_excluding_key(Some("a"));
         assert!(colors.contains("#222222"));
         assert!(!colors.contains("#111111"));
+    }
+
+    #[test]
+    fn terminals_for_worktree_returns_matching_terminals() {
+        let mut state = RuntimeState::default();
+        state.set_terminal_context("/dev/ttys001".into(), Some("repo\0wt-a".into()), "#111111".into());
+        state.set_terminal_context("/dev/ttys002".into(), Some("repo\0wt-a".into()), "#111111".into());
+        state.set_terminal_context("/dev/ttys003".into(), Some("repo\0wt-b".into()), "#222222".into());
+        state.set_terminal_context("/dev/ttys004".into(), None, "#333333".into());
+
+        let terminals = state.terminals_for_worktree("repo\0wt-a");
+        assert_eq!(terminals.len(), 2);
+        assert!(terminals.contains(&"/dev/ttys001".to_string()));
+        assert!(terminals.contains(&"/dev/ttys002".to_string()));
+
+        let terminals_b = state.terminals_for_worktree("repo\0wt-b");
+        assert_eq!(terminals_b.len(), 1);
+        assert!(terminals_b.contains(&"/dev/ttys003".to_string()));
+
+        let terminals_none = state.terminals_for_worktree("nonexistent");
+        assert_eq!(terminals_none.len(), 0);
+    }
+
+    #[test]
+    fn cycle_color_workflow_updates_all_terminals() {
+        let mut state = RuntimeState::default();
+        let worktree_key = "repo\0wt-a";
+
+        // Initial state: two terminals in the same worktree with color #111111
+        state.set_assignment(worktree_key.into(), "#111111".into());
+        state.set_terminal_context("/dev/ttys001".into(), Some(worktree_key.into()), "#111111".into());
+        state.set_terminal_context("/dev/ttys002".into(), Some(worktree_key.into()), "#111111".into());
+
+        // Verify both terminals have the old color
+        let ctx1 = state.current_for_terminal("/dev/ttys001").unwrap();
+        let ctx2 = state.current_for_terminal("/dev/ttys002").unwrap();
+        assert_eq!(ctx1.color, "#111111");
+        assert_eq!(ctx2.color, "#111111");
+
+        // Simulate cycle-color: change assignment to new color
+        state.set_assignment(worktree_key.into(), "#999999".into());
+
+        // Get terminals for this worktree (what cycle-color does)
+        let terminals = state.terminals_for_worktree(worktree_key);
+        assert_eq!(terminals.len(), 2);
+
+        // Update each terminal's context with the new color (what cycle-color should do)
+        for terminal_id in terminals {
+            state.set_terminal_context(
+                terminal_id,
+                Some(worktree_key.into()),
+                "#999999".into(),
+            );
+        }
+
+        // Verify both terminals now have the new color
+        let ctx1_after = state.current_for_terminal("/dev/ttys001").unwrap();
+        let ctx2_after = state.current_for_terminal("/dev/ttys002").unwrap();
+        assert_eq!(ctx1_after.color, "#999999");
+        assert_eq!(ctx2_after.color, "#999999");
+
+        // Verify assignment was updated
+        assert_eq!(state.assignment_for(worktree_key), Some("#999999".into()));
     }
 }

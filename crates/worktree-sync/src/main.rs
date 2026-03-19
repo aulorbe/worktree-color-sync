@@ -196,11 +196,45 @@ impl AppState {
             .save(&self.state_path)
             .context("failed to persist color change")?;
 
+        // Apply the new color to all terminals currently in this worktree
+        self.apply_color_to_active_terminals(&key, &new_color.hex, &worktree.key.worktree_path)?;
+
         Ok(Response::Ack {
             changed: true,
             worktree_key: Some(key),
             color: new_color.hex,
         })
+    }
+
+    fn apply_color_to_active_terminals(
+        &mut self,
+        worktree_key: &str,
+        color: &str,
+        worktree_path: &PathBuf,
+    ) -> Result<()> {
+        // Get all terminals currently in this worktree
+        let terminals = self.runtime.terminals_for_worktree(worktree_key);
+
+        if terminals.is_empty() {
+            info!("no active terminals for this worktree, color will be applied on next notify");
+            return Ok(());
+        }
+
+        // Apply integrations to each terminal and update its context
+        for terminal_id in terminals {
+            if let Err(err) = self.apply_integrations(&terminal_id, Some(worktree_path), color) {
+                warn!(terminal_id, "failed to apply color to terminal: {err:#}");
+            } else {
+                // Update the terminal's context with the new color
+                self.runtime.set_terminal_context(
+                    terminal_id.clone(),
+                    Some(worktree_key.to_string()),
+                    color.to_string(),
+                );
+            }
+        }
+
+        Ok(())
     }
 
     fn apply_integrations(
