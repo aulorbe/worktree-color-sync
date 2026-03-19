@@ -51,8 +51,9 @@ enum Commands {
     },
     /// Generate a new random color for a worktree (run repeatedly until you like the color)
     CycleColor {
+        /// Path to worktree (defaults to current directory)
         #[arg(long)]
-        worktree_path: String,
+        worktree_path: Option<String>,
     },
 }
 
@@ -109,7 +110,7 @@ impl AppState {
                 Response::Doctor { ok, checks }
             }
             Request::CycleColor { worktree_path } => {
-                match self.handle_cycle_color(&worktree_path) {
+                match self.handle_cycle_color(worktree_path.as_deref()) {
                     Ok(response) => response,
                     Err(err) => Response::Error {
                         message: format!("cycle-color failed: {err:#}"),
@@ -170,11 +171,16 @@ impl AppState {
         })
     }
 
-    fn handle_cycle_color(&mut self, worktree_path: &str) -> Result<Response> {
+    fn handle_cycle_color(&mut self, worktree_path: Option<&str>) -> Result<Response> {
+        let path = match worktree_path {
+            Some(p) => PathBuf::from(p),
+            None => std::env::current_dir().context("failed to get current directory")?,
+        };
+
         let git_timeout = Duration::from_millis(self.config.daemon.git_timeout_ms);
-        let worktree = resolve_worktree(&PathBuf::from(worktree_path), git_timeout)
-            .with_context(|| format!("failed to resolve worktree at {worktree_path}"))?
-            .ok_or_else(|| anyhow::anyhow!("path is not a git worktree: {worktree_path}"))?;
+        let worktree = resolve_worktree(&path, git_timeout)
+            .with_context(|| format!("failed to resolve worktree at {}", path.display()))?
+            .ok_or_else(|| anyhow::anyhow!("path is not a git worktree: {}", path.display()))?;
 
         let key = worktree.key.as_string();
 

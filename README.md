@@ -64,6 +64,10 @@ worktree-sync cycle-color --worktree-path /path/to/worktree
 Don't like the assigned color? Use `cycle-color` to generate a new random color:
 
 ```bash
+# From within the worktree directory
+worktree-sync cycle-color
+
+# Or specify the path explicitly
 worktree-sync cycle-color --worktree-path /path/to/worktree
 ```
 

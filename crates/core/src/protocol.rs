@@ -7,7 +7,7 @@ pub enum Request {
     Status,
     Current { terminal_id: String },
     Doctor { terminal_id: Option<String> },
-    CycleColor { worktree_path: String },
+    CycleColor { worktree_path: Option<String> },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
