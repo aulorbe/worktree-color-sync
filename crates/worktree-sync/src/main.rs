@@ -415,8 +415,16 @@ async fn main() -> Result<()> {
                     .map(|p| p.display().to_string())
             });
             let response = send_request(cli.config.as_deref(), Request::CycleColor { worktree_path: path }).await?;
-            print_response(response);
-            Ok(())
+            match response {
+                Response::Error { .. } => {
+                    print_response(response);
+                    std::process::exit(1);
+                }
+                _ => {
+                    // Silent on success
+                    Ok(())
+                }
+            }
         }
     }
 }

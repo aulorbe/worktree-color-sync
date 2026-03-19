@@ -129,6 +129,51 @@ Example config:
   - `terminal.integrated.cwd = ${workspaceFolder}`
   - `terminal.integrated.splitCwd = initial`
 
+## Testing
+
+After installation, verify everything works:
+
+### 1. Basic Functionality
+```bash
+# Navigate to a git repo - should get a color
+cd ~/github/some-repo
+
+# Open new Ghostty tab (Cmd+T) - should inherit same color
+# Try from subdirectory - should still work
+cd ~/github/some-repo/subdirectory
+```
+
+### 2. Cycle Color
+```bash
+cd ~/github/your-worktree
+worktree-sync cycle-color
+# Cursor titlebar should change immediately
+# New Ghostty tabs should get the new color
+# Run again to get a different color
+```
+
+### 3. Error Handling
+```bash
+cd /tmp  # non-git directory
+worktree-sync cycle-color
+# Should show error with link to git documentation
+```
+
+### 4. Status Commands
+```bash
+worktree-sync status                       # Check daemon
+worktree-sync current --terminal-id "$(tty)"  # Current terminal color
+worktree-sync doctor --terminal-id "$(tty)"   # Health check
+```
+
+## Development
+
+```bash
+cargo fmt --all
+cargo check --workspace
+cargo test --workspace
+```
+
 ## Known Constraints and Disclaimers
 
 - `MVP scope`: Terminal + Cursor only. Browser integration is intentionally excluded.
