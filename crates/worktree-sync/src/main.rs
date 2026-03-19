@@ -7,6 +7,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{UnixListener, UnixStream};
 use tokio::sync::Mutex;
 use tracing::{error, info, warn};
+use worktree_color_sync_color_engine::deterministic_fallback_color;
 use worktree_color_sync_core::allocator::ColorAllocator;
 use worktree_color_sync_core::config::Config;
 use worktree_color_sync_core::git::resolve_worktree;
@@ -47,6 +48,11 @@ enum Commands {
     Doctor {
         #[arg(long)]
         terminal_id: Option<String>,
+    },
+    /// Generate a new random color for a worktree (run repeatedly until you like the color)
+    CycleColor {
+        #[arg(long)]
+        worktree_path: String,
     },
 }
 
@@ -102,6 +108,14 @@ impl AppState {
                 let ok = checks.iter().all(|c| c.ok);
                 Response::Doctor { ok, checks }
             }
+            Request::CycleColor { worktree_path } => {
+                match self.handle_cycle_color(&worktree_path) {
+                    Ok(response) => response,
+                    Err(err) => Response::Error {
+                        message: format!("cycle-color failed: {err:#}"),
+                    },
+                }
+            }
         }
     }
 
@@ -153,6 +167,33 @@ impl AppState {
             changed: assignment_changed || context_changed,
             worktree_key,
             color,
+        })
+    }
+
+    fn handle_cycle_color(&mut self, worktree_path: &str) -> Result<Response> {
+        let git_timeout = Duration::from_millis(self.config.daemon.git_timeout_ms);
+        let worktree = resolve_worktree(&PathBuf::from(worktree_path), git_timeout)
+            .with_context(|| format!("failed to resolve worktree at {worktree_path}"))?
+            .ok_or_else(|| anyhow::anyhow!("path is not a git worktree: {worktree_path}"))?;
+
+        let key = worktree.key.as_string();
+
+        // Use a random seed based on current time to generate a new color each time
+        let seed = format!("{key}::{}", std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos());
+        let new_color = deterministic_fallback_color(&seed, 0);
+
+        self.runtime.set_assignment(key.clone(), new_color.hex.clone());
+        self.runtime
+            .save(&self.state_path)
+            .context("failed to persist color change")?;
+
+        Ok(Response::Ack {
+            changed: true,
+            worktree_key: Some(key),
+            color: new_color.hex,
         })
     }
 
@@ -308,6 +349,11 @@ async fn main() -> Result<()> {
                     Ok(())
                 }
             }
+        }
+        Commands::CycleColor { worktree_path } => {
+            let response = send_request(cli.config.as_deref(), Request::CycleColor { worktree_path }).await?;
+            print_response(response);
+            Ok(())
         }
     }
 }

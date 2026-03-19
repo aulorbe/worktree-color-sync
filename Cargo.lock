@@ -1144,6 +1144,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "worktree-color-sync-color-engine",
  "worktree-color-sync-core",
  "worktree-color-sync-integrations",
 ]

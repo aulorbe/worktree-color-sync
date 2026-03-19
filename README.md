@@ -56,7 +56,18 @@ worktree-sync notify --terminal-id /dev/ttys012 --cwd /path/to/repo-or-worktree
 worktree-sync status
 worktree-sync current --terminal-id /dev/ttys012
 worktree-sync doctor --terminal-id /dev/ttys012
+worktree-sync cycle-color --worktree-path /path/to/worktree
 ```
+
+### Changing a Worktree's Color
+
+Don't like the assigned color? Use `cycle-color` to generate a new random color:
+
+```bash
+worktree-sync cycle-color --worktree-path /path/to/worktree
+```
+
+Run it repeatedly until you find a color you like. Each run generates a new random color and immediately updates all terminals and Cursor windows for that worktree.
 
 ## Cursor Workflow (New Window)
 
