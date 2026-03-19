@@ -16,12 +16,25 @@ When juggling multiple worktrees, it is easy to run commands in the wrong one. T
 
 ## Install / Build
 
+Build the release binary:
 ```bash
 cargo build --release -p worktree-sync
 ```
 
-Binary path:
-- `target/release/worktree-sync`
+Install to your PATH:
+```bash
+cp target/release/worktree-sync ~/.local/bin/worktree-sync
+```
+
+Make sure `~/.local/bin` is in your PATH. If not, add to your `~/.zshrc`:
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+**To update:** Rebuild and copy again:
+```bash
+cargo build --release -p worktree-sync && cp target/release/worktree-sync ~/.local/bin/worktree-sync
+```
 
 ## Quick Start
 

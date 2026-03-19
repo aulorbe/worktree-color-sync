@@ -119,4 +119,61 @@ mod tests {
         );
         assert_eq!(value["terminal.integrated.splitCwd"], json!("initial"));
     }
+
+    #[test]
+    fn cycle_color_updates_existing_color() {
+        let dir = tempdir().unwrap();
+
+        // Apply initial color
+        apply_cursor_workspace_color(dir.path(), "#111111").unwrap();
+
+        let settings_path = dir.path().join(".vscode/settings.json");
+        let raw = std::fs::read_to_string(&settings_path).unwrap();
+        let value: Value = serde_json::from_str(&raw).unwrap();
+        assert_eq!(
+            value["workbench.colorCustomizations"]["titleBar.activeBackground"],
+            json!("#111111")
+        );
+
+        // Cycle to new color
+        apply_cursor_workspace_color(dir.path(), "#999999").unwrap();
+
+        let raw = std::fs::read_to_string(&settings_path).unwrap();
+        let value: Value = serde_json::from_str(&raw).unwrap();
+        assert_eq!(
+            value["workbench.colorCustomizations"]["titleBar.activeBackground"],
+            json!("#999999")
+        );
+        assert_eq!(
+            value["worktreeSync.color"],
+            json!("#999999")
+        );
+    }
+
+    #[test]
+    fn applies_color_to_empty_worktree() {
+        let dir = tempdir().unwrap();
+
+        // Apply color to a worktree that has never had settings before
+        apply_cursor_workspace_color(dir.path(), "#abcdef").unwrap();
+
+        let settings_path = dir.path().join(".vscode/settings.json");
+        assert!(settings_path.exists(), "settings.json should be created");
+
+        let raw = std::fs::read_to_string(&settings_path).unwrap();
+        let value: Value = serde_json::from_str(&raw).unwrap();
+
+        assert_eq!(
+            value["workbench.colorCustomizations"]["titleBar.activeBackground"],
+            json!("#abcdef")
+        );
+        assert_eq!(
+            value["worktreeSync.color"],
+            json!("#abcdef")
+        );
+        assert_eq!(
+            value["terminal.integrated.cwd"],
+            json!("${workspaceFolder}")
+        );
+    }
 }

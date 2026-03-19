@@ -503,10 +503,12 @@ fn print_response(response: Response) {
             worktree_key,
             color,
         } => {
-            println!(
-                "ack changed={changed} color={color} worktree={}",
-                worktree_key.unwrap_or_else(|| "<none>".to_string())
-            );
+            // Extract just the worktree path (after the null byte separator)
+            let worktree_display = worktree_key
+                .as_ref()
+                .and_then(|key| key.split('\0').nth(1))
+                .unwrap_or("<none>");
+            println!("Color changed to {color} for {worktree_display}");
         }
         Response::Status {
             running,

@@ -293,4 +293,90 @@ mod tests {
         // Verify assignment was updated
         assert_eq!(state.assignment_for(worktree_key), Some("#999999".into()));
     }
+
+    #[test]
+    fn cycle_color_with_no_registered_terminals() {
+        let mut state = RuntimeState::default();
+        let worktree_key = "repo\0wt-a";
+
+        // Set initial assignment but no registered terminals
+        state.set_assignment(worktree_key.into(), "#111111".into());
+
+        // Verify no terminals are registered
+        let terminals = state.terminals_for_worktree(worktree_key);
+        assert_eq!(terminals.len(), 0);
+
+        // Simulate cycle-color: change assignment to new color
+        state.set_assignment(worktree_key.into(), "#999999".into());
+
+        // Verify assignment was updated even without registered terminals
+        assert_eq!(state.assignment_for(worktree_key), Some("#999999".into()));
+
+        // This simulates the behavior where Cursor color gets updated
+        // but Ghostty terminal colors don't (since there are no terminals)
+    }
+
+    #[test]
+    fn cycle_color_updates_only_matching_worktree_terminals() {
+        let mut state = RuntimeState::default();
+        let worktree_a = "repo\0wt-a";
+        let worktree_b = "repo\0wt-b";
+
+        // Set up two different worktrees with terminals
+        state.set_assignment(worktree_a.into(), "#111111".into());
+        state.set_assignment(worktree_b.into(), "#222222".into());
+        state.set_terminal_context("/dev/ttys001".into(), Some(worktree_a.into()), "#111111".into());
+        state.set_terminal_context("/dev/ttys002".into(), Some(worktree_a.into()), "#111111".into());
+        state.set_terminal_context("/dev/ttys003".into(), Some(worktree_b.into()), "#222222".into());
+
+        // Cycle color for worktree A
+        state.set_assignment(worktree_a.into(), "#999999".into());
+        let terminals_a = state.terminals_for_worktree(worktree_a);
+
+        for terminal_id in terminals_a {
+            state.set_terminal_context(
+                terminal_id,
+                Some(worktree_a.into()),
+                "#999999".into(),
+            );
+        }
+
+        // Verify worktree A terminals updated
+        assert_eq!(state.current_for_terminal("/dev/ttys001").unwrap().color, "#999999");
+        assert_eq!(state.current_for_terminal("/dev/ttys002").unwrap().color, "#999999");
+
+        // Verify worktree B terminal unchanged
+        assert_eq!(state.current_for_terminal("/dev/ttys003").unwrap().color, "#222222");
+
+        // Verify assignments
+        assert_eq!(state.assignment_for(worktree_a), Some("#999999".into()));
+        assert_eq!(state.assignment_for(worktree_b), Some("#222222".into()));
+    }
+
+    #[test]
+    fn cycle_color_preserves_terminal_worktree_association() {
+        let mut state = RuntimeState::default();
+        let worktree_key = "repo\0wt-a";
+
+        // Set up terminal in worktree
+        state.set_assignment(worktree_key.into(), "#111111".into());
+        state.set_terminal_context("/dev/ttys001".into(), Some(worktree_key.into()), "#111111".into());
+
+        // Cycle color
+        state.set_assignment(worktree_key.into(), "#999999".into());
+        let terminals = state.terminals_for_worktree(worktree_key);
+
+        for terminal_id in terminals {
+            state.set_terminal_context(
+                terminal_id.clone(),
+                Some(worktree_key.into()),
+                "#999999".into(),
+            );
+
+            // Verify terminal still associated with same worktree
+            let ctx = state.current_for_terminal(&terminal_id).unwrap();
+            assert_eq!(ctx.worktree_key, Some(worktree_key.to_string()));
+            assert_eq!(ctx.color, "#999999");
+        }
+    }
 }
