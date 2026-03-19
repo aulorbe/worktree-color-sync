@@ -212,25 +212,37 @@ impl AppState {
         color: &str,
         worktree_path: &PathBuf,
     ) -> Result<()> {
-        // Get all terminals currently in this worktree
+        // Apply Cursor workspace color immediately (doesn't require registered terminals)
+        if self.config.integrations.cursor.enabled {
+            if let Err(err) = apply_cursor_workspace_color(worktree_path, color) {
+                warn!("failed to apply Cursor color: {err:#}");
+            }
+        }
+
+        // Get all terminals currently in this worktree and update them
         let terminals = self.runtime.terminals_for_worktree(worktree_key);
 
         if terminals.is_empty() {
-            info!("no active terminals for this worktree, color will be applied on next notify");
+            info!("no active terminals for this worktree, terminal colors will be applied on next notify");
             return Ok(());
         }
 
-        // Apply integrations to each terminal and update its context
-        for terminal_id in terminals {
-            if let Err(err) = self.apply_integrations(&terminal_id, Some(worktree_path), color) {
-                warn!(terminal_id, "failed to apply color to terminal: {err:#}");
-            } else {
-                // Update the terminal's context with the new color
-                self.runtime.set_terminal_context(
-                    terminal_id.clone(),
-                    Some(worktree_key.to_string()),
-                    color.to_string(),
-                );
+        // Apply Ghostty terminal colors to each registered terminal
+        if self.config.integrations.ghostty.enabled {
+            for terminal_id in terminals {
+                match apply_background_color_to_tty(&terminal_id, color) {
+                    Ok(_) => {
+                        // Update the terminal's context with the new color
+                        self.runtime.set_terminal_context(
+                            terminal_id.clone(),
+                            Some(worktree_key.to_string()),
+                            color.to_string(),
+                        );
+                    }
+                    Err(err) => {
+                        warn!(terminal_id, "failed to apply terminal color: {err:#}");
+                    }
+                }
             }
         }
 
