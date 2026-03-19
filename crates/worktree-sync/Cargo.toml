@@ -19,3 +19,7 @@ tracing-subscriber.workspace = true
 worktree-color-sync-color-engine = { path = "../color-engine" }
 worktree-color-sync-core = { path = "../core" }
 worktree-color-sync-integrations = { path = "../integrations" }
+
+[dev-dependencies]
+tempfile.workspace = true
+serde_json.workspace = true

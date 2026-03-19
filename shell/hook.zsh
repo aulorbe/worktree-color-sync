@@ -38,23 +38,13 @@ function __worktree_sync_maybe_notify() {
     return
   }
 
-  # Not at root (inside subdir): reset once when leaving root context.
-  if [[ "$PWD" != "$root" ]]; then
-    if [[ "$__WORKTREE_SYNC_AT_ROOT" -eq 1 ]]; then
-      __worktree_sync_notify_for_cwd "$tty_path" "$PWD"
-      __WORKTREE_SYNC_LAST_ROOT=""
-    fi
-    __WORKTREE_SYNC_AT_ROOT=0
-    return
-  fi
-
-  # At root: trigger on transition to root, or root switch.
-  if [[ "$__WORKTREE_SYNC_AT_ROOT" -eq 0 || "$root" != "$__WORKTREE_SYNC_LAST_ROOT" ]]; then
+  # Inside a git worktree: apply color if this is a new worktree or first time here
+  if [[ "$root" != "$__WORKTREE_SYNC_LAST_ROOT" ]]; then
     __worktree_sync_notify_for_cwd "$tty_path" "$root"
+    __WORKTREE_SYNC_LAST_ROOT="$root"
   fi
 
   __WORKTREE_SYNC_AT_ROOT=1
-  __WORKTREE_SYNC_LAST_ROOT="$root"
 }
 
 # Cursor wrapper:

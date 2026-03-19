@@ -180,7 +180,12 @@ impl AppState {
         let git_timeout = Duration::from_millis(self.config.daemon.git_timeout_ms);
         let worktree = resolve_worktree(&path, git_timeout)
             .with_context(|| format!("failed to resolve worktree at {}", path.display()))?
-            .ok_or_else(|| anyhow::anyhow!("path is not a git worktree: {}", path.display()))?;
+            .ok_or_else(|| anyhow::anyhow!(
+                "Not a git worktree: {}\n\n\
+                This tool requires a git worktree. Learn more:\n\
+                https://git-scm.com/docs/git-worktree",
+                path.display()
+            ))?;
 
         let key = worktree.key.as_string();
 
@@ -403,7 +408,13 @@ async fn main() -> Result<()> {
             }
         }
         Commands::CycleColor { worktree_path } => {
-            let response = send_request(cli.config.as_deref(), Request::CycleColor { worktree_path }).await?;
+            // If no path provided, use current directory (CLI's cwd, not daemon's)
+            let path = worktree_path.or_else(|| {
+                std::env::current_dir()
+                    .ok()
+                    .map(|p| p.display().to_string())
+            });
+            let response = send_request(cli.config.as_deref(), Request::CycleColor { worktree_path: path }).await?;
             print_response(response);
             Ok(())
         }
