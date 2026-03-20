@@ -518,7 +518,7 @@ async fn send_request(config_path: Option<&str>, request: Request) -> Result<Res
 fn print_response(response: Response) {
     match response {
         Response::Ack {
-            changed,
+            changed: _,
             worktree_key,
             color,
         } => {

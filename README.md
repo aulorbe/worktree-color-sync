@@ -16,6 +16,9 @@ When juggling multiple worktrees, it is easy to run commands in the wrong one. T
 
 ## Install / Build
 
+**Prerequisites:**
+- `jq` (required for Cursor integration) - install via `brew install jq`
+
 Build the release binary:
 ```bash
 cargo build --release -p worktree-sync

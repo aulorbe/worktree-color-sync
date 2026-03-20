@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
-use serde_json::{json, Value};
 use std::path::Path;
+use std::process::Command;
 
 const MARKER_KEY: &str = "worktreeSync.color";
 
@@ -11,59 +11,38 @@ pub fn apply_cursor_workspace_color(worktree_path: &Path, color: &str) -> Result
             .with_context(|| format!("failed to create {}", parent.display()))?;
     }
 
-    let mut settings = if settings_path.exists() {
-        let raw = std::fs::read_to_string(&settings_path)
-            .with_context(|| format!("failed to read {}", settings_path.display()))?;
-        serde_json::from_str::<Value>(&raw).unwrap_or_else(|_| json!({}))
-    } else {
-        json!({})
-    };
-
-    if !settings.is_object() {
-        settings = json!({});
+    // Create empty settings file if it doesn't exist
+    if !settings_path.exists() {
+        std::fs::write(&settings_path, "{}\n")?;
     }
 
-    let obj = settings
-        .as_object_mut()
-        .expect("settings should be object after normalization");
+    let dimmed_color = dimmed(color);
 
-    let mut customizations = obj
-        .get("workbench.colorCustomizations")
-        .cloned()
-        .unwrap_or_else(|| json!({}));
+    // Use jq to surgically update only the fields we need, preserving everything else
+    let jq_filter = format!(
+        ". + {{\"workbench.colorCustomizations\": (.\"workbench.colorCustomizations\" // {{}}) + \
+         {{\"titleBar.activeBackground\": \"{}\", \"titleBar.inactiveBackground\": \"{}\", \
+         \"titleBar.activeForeground\": \"#ffffff\"}}, \
+         \"terminal.integrated.cwd\": \"${{workspaceFolder}}\", \
+         \"terminal.integrated.splitCwd\": \"initial\", \
+         \"{}\": \"{}\"}}",
+        color, dimmed_color, MARKER_KEY, color
+    );
 
-    if !customizations.is_object() {
-        customizations = json!({});
+    let output = Command::new("jq")
+        .arg(&jq_filter)
+        .arg(&settings_path)
+        .output()
+        .context("failed to run jq - is it installed?")?;
+
+    if !output.status.success() {
+        anyhow::bail!(
+            "jq failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
 
-    let custom_obj = customizations
-        .as_object_mut()
-        .expect("customizations should be object after normalization");
-
-    custom_obj.insert("titleBar.activeBackground".to_string(), json!(color));
-    custom_obj.insert(
-        "titleBar.inactiveBackground".to_string(),
-        json!(dimmed(color)),
-    );
-    custom_obj.insert("titleBar.activeForeground".to_string(), json!("#ffffff"));
-
-    obj.insert(
-        "workbench.colorCustomizations".to_string(),
-        Value::Object(custom_obj.clone()),
-    );
-
-    // Keep Cursor integrated terminals anchored to the workspace root.
-    obj.insert(
-        "terminal.integrated.cwd".to_string(),
-        json!("${workspaceFolder}"),
-    );
-    // New splits should start where the terminal started (workspace root), not the current shell cwd.
-    obj.insert("terminal.integrated.splitCwd".to_string(), json!("initial"));
-
-    obj.insert(MARKER_KEY.to_string(), json!(color));
-
-    let out = serde_json::to_string_pretty(&settings)?;
-    std::fs::write(&settings_path, out)
+    std::fs::write(&settings_path, output.stdout)
         .with_context(|| format!("failed to write {}", settings_path.display()))?;
 
     Ok(())
@@ -84,6 +63,7 @@ fn dimmed(color: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::{json, Value};
     use tempfile::tempdir;
 
     #[test]
